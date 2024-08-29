@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Пинг IP-адресов</title>
+    <title>Проверка доступности IP через WebRTC</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,29 +26,53 @@
     </style>
 </head>
 <body>
-    <h1>Пинг IP-адресов</h1>
-    <button onclick="pingIPs()">Провести пинг</button>
+    <h1>Проверка доступности IP-адресов через WebRTC</h1>
+    <button onclick="checkIPs()">Проверить IP</button>
 
     <div id="results" class="result"></div>
 
     <script>
-        function pingIPs() {
-            const ips = ['google.com', '775397.14.rt.ru', 'ts1.corp.gpbmobile.ru'];
+        function checkIPs() {
+            const ips = ['172.31.103.4', '8.8.8.8', '775397.14.rt.ru'];
             const resultsContainer = document.getElementById('results');
             resultsContainer.innerHTML = ''; // Очистить предыдущие результаты
 
             ips.forEach(ip => {
-                fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('http://' + ip)}`)
-                    .then(response => {
-                        if (response.ok) {
-                            resultsContainer.innerHTML += `<div class="success">Пинг ${ip} успешен!</div>`;
-                        } else {
-                            resultsContainer.innerHTML += `<div class="failure">Пинг ${ip} неудачен!</div>`;
-                        }
+                testConnection(ip)
+                    .then(() => {
+                        resultsContainer.innerHTML += `<div class="success">IP ${ip} доступен!</div>`;
                     })
-                    .catch(error => {
-                        resultsContainer.innerHTML += `<div class="failure">Пинг ${ip} неудачен! Ошибка: ${error.message}</div>`;
+                    .catch(() => {
+                        resultsContainer.innerHTML += `<div class="failure">IP ${ip} недоступен!</div>`;
                     });
+            });
+        }
+
+        function testConnection(ip) {
+            return new Promise((resolve, reject) => {
+                const rtcPeerConnection = new RTCPeerConnection();
+                const dataChannel = rtcPeerConnection.createDataChannel("test");
+
+                rtcPeerConnection.createOffer().then(offer => {
+                    return rtcPeerConnection.setLocalDescription(offer);
+                });
+
+                rtcPeerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const candidate = event.candidate.candidate;
+                        if (candidate.includes(ip)) {
+                            resolve();
+                            rtcPeerConnection.close();
+                        }
+                    } else {
+                        reject();
+                    }
+                };
+
+                setTimeout(() => {
+                    reject();
+                    rtcPeerConnection.close();
+                }, 3000); // Таймаут 3 секунды на попытку
             });
         }
     </script>
